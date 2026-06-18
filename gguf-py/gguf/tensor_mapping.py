@@ -1300,6 +1300,14 @@ class TensorNameMap:
         MODEL_TENSOR.CLS_NORM: (
             "head.norm", # modern-bert
         ),
+
+        MODEL_TENSOR.CLS_SPARSE: (
+            "sparse_linear", # bge-m3
+        ),
+
+        MODEL_TENSOR.CLS_COLBERT: (
+            "colbert_linear", # bge-m3
+        ),
         #############################################################################
 
         MODEL_TENSOR.CONVNEXT_DW: (

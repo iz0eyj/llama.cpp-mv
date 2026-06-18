@@ -914,6 +914,49 @@ float * llama_context::get_embeddings_seq(llama_seq_id seq_id) {
     return it->second.data();
 }
 
+float llama_context::get_embeddings_sparse_ith(int32_t i) {
+    output_reorder();
+
+    try {
+        if (embd_sparse.data == nullptr) {
+            throw std::runtime_error("no sparse embeddings");
+        }
+
+        const int64_t j = output_resolve_row(i);
+        return log1pf(embd_sparse.data[j]);
+    } catch (const std::exception & err) {
+        LLAMA_LOG_ERROR("%s: invalid sparse embeddings id %d, reason: %s\n", __func__, i, err.what());
+
+#ifndef NDEBUG
+        GGML_ABORT("fatal error");
+#else
+        return NAN;
+#endif
+    }
+}
+
+float * llama_context::get_embeddings_colbert_ith(int32_t i) {
+    output_reorder();
+
+    try {
+        if (embd_colbert.data == nullptr) {
+            throw std::runtime_error("no colbert embeddings");
+        }
+
+        const int64_t j = output_resolve_row(i);
+        const uint32_t n_embd_out = model.hparams.n_embd_out();
+        return embd_colbert.data + j * n_embd_out;
+    } catch (const std::exception & err) {
+        LLAMA_LOG_ERROR("%s: invalid colbert embeddings id %d, reason: %s\n", __func__, i, err.what());
+
+#ifndef NDEBUG
+        GGML_ABORT("fatal error");
+#else
+        return nullptr;
+#endif
+    }
+}
+
 float * llama_context::get_embeddings_nextn() {
     output_reorder();
 
@@ -1522,6 +1565,28 @@ int llama_context::encode(const llama_batch & batch_inp) {
         ggml_backend_tensor_get_async(backend_h, t_h_nextn, embd_nextn.data, 0, n_tokens*n_embd*sizeof(float));
     }
 
+    auto * t_embd_sparse_src = res->get_embd_sparse();
+    if (embd_sparse.data && t_embd_sparse_src) {
+        ggml_backend_t backend_embd_sparse = ggml_backend_sched_get_tensor_backend(sched.get(), t_embd_sparse_src);
+        GGML_ASSERT(backend_embd_sparse != nullptr);
+
+        GGML_ASSERT(ubatch.n_tokens <= (int64_t) embd_sparse.size);
+        ggml_backend_tensor_get_async(backend_embd_sparse, t_embd_sparse_src, embd_sparse.data, 0, ubatch.n_tokens*sizeof(float));
+    }
+
+    // extract colbert embeddings (per-token multi-vector, e.g. BGE-M3)
+    {
+        auto * t_embd_colbert = res->get_embd_colbert();
+        if (embd_colbert.data && t_embd_colbert) {
+            ggml_backend_t backend_colbert = ggml_backend_sched_get_tensor_backend(sched.get(), t_embd_colbert);
+            GGML_ASSERT(backend_colbert != nullptr);
+
+            const uint32_t n_embd = hparams.n_embd;
+            GGML_ASSERT(ubatch.n_tokens * n_embd <= (int64_t) embd_colbert.size);
+            ggml_backend_tensor_get_async(backend_colbert, t_embd_colbert, embd_colbert.data, 0, ubatch.n_tokens * n_embd * sizeof(float));
+        }
+    }
+
     // TODO: hacky solution
     if (model.arch == LLM_ARCH_T5 && t_embd) {
         //cross.t_embd = t_embd;
@@ -1959,6 +2024,30 @@ int llama_context::decode(const llama_batch & batch_inp) {
 
         extract_layer_inputs(res, n_tokens_prev, ubatch.n_tokens);
 
+        auto * t_embd_sparse_src = res->get_embd_sparse();
+        if (embd_sparse.data && t_embd_sparse_src && n_outputs > 0) {
+            ggml_backend_t backend_embd_sparse = ggml_backend_sched_get_tensor_backend(sched.get(), t_embd_sparse_src);
+            GGML_ASSERT(backend_embd_sparse != nullptr);
+
+            GGML_ASSERT(n_outputs_prev + n_outputs <= (int64_t) embd_sparse.size);
+            float * embd_sparse_out = embd_sparse.data + n_outputs_prev;
+            ggml_backend_tensor_get_async(backend_embd_sparse, t_embd_sparse_src, embd_sparse_out, 0, n_outputs*sizeof(float));
+        }
+
+        // extract colbert embeddings (streaming path)
+        {
+            auto * t_embd_colbert = res->get_embd_colbert();
+            if (embd_colbert.data && t_embd_colbert && ubatch.n_tokens > 0) {
+                ggml_backend_t backend_colbert = ggml_backend_sched_get_tensor_backend(sched.get(), t_embd_colbert);
+                GGML_ASSERT(backend_colbert != nullptr);
+
+                const uint32_t n_embd = hparams.n_embd;
+                float * embd_colbert_out = embd_colbert.data + n_tokens_prev * n_embd;
+                GGML_ASSERT((n_tokens_prev + ubatch.n_tokens) * n_embd <= (int64_t) embd_colbert.size);
+                ggml_backend_tensor_get_async(backend_colbert, t_embd_colbert, embd_colbert_out, 0, ubatch.n_tokens * n_embd * sizeof(float));
+            }
+        }
+
         // extract nextn embeddings before
         // only meaningful in LLAMA_POOLING_TYPE_NONE (per-token); other pooling modes are ignored.
         {
@@ -2083,6 +2172,8 @@ uint32_t llama_context::output_reserve(int32_t n_outputs) {
     logits.size     = has_logits     ? n_vocab*n_outputs_max     : 0;
     embd.size       = has_embd       ? n_embd_out*n_outputs_max  : 0;
     embd_nextn.size = has_embd_nextn ? n_embd_out*n_outputs_max  : 0;
+    embd_sparse.size  = has_embd       ? (size_t) n_batch          : 0;
+    embd_colbert.size = has_embd       ? (size_t) n_batch * n_embd : 0;
 
     if (has_embd_nextn && !cparams.embeddings_nextn_masked) {
         // unmasked: nextn row exists for every token in the batch, not just
@@ -2110,8 +2201,8 @@ uint32_t llama_context::output_reserve(int32_t n_outputs) {
 
     const size_t prev_size = buf_output ? ggml_backend_buffer_get_size(buf_output.get()) : 0;
     const size_t new_size  =
-        (logits.size + embd.size + embd_nextn.size + embd_layer_inp_float_count + backend_float_count) * sizeof(float) +
-        (                                                                         backend_token_count) * sizeof(llama_token);
+        (logits.size + embd.size + embd_nextn.size + embd_sparse.size + embd_colbert.size + embd_layer_inp_float_count + backend_float_count) * sizeof(float) +
+        (                                                                                           backend_token_count) * sizeof(llama_token);
 
     // alloc only when more than the current capacity is required
     // TODO: also consider shrinking the buffer
@@ -2128,6 +2219,8 @@ uint32_t llama_context::output_reserve(int32_t n_outputs) {
             logits.data = nullptr;
             embd.data = nullptr;
             embd_nextn.data = nullptr;
+            embd_sparse.data = nullptr;
+            embd_colbert.data = nullptr;
             for (auto & layer_inp : embd_layer_inp) {
                 layer_inp = {nullptr, 0};
             }
@@ -2161,6 +2254,13 @@ uint32_t llama_context::output_reserve(int32_t n_outputs) {
 
     embd_nextn = has_embd_nextn ? buffer_view<float>{(float *) (base + offset), embd_nextn.size} : buffer_view<float>{nullptr, 0};
     offset += embd_nextn.size * sizeof(float);
+
+    embd_sparse = has_embd ? buffer_view<float>{(float *) (base + offset), embd_sparse.size} : buffer_view<float>{nullptr, 0};
+    offset += embd_sparse.size * sizeof(float);
+
+    embd_colbert = has_embd ? buffer_view<float>{(float *) (base + offset), embd_colbert.size} : buffer_view<float>{nullptr, 0};
+    offset += embd_colbert.size * sizeof(float);
+    offset += embd_sparse.size * sizeof(float);
 
     for (uint32_t il = 0; il < embd_layer_inp.size(); ++il) {
         if (cparams.embeddings_layer_inp[il]) {
@@ -3689,6 +3789,18 @@ float * llama_get_embeddings_seq(llama_context * ctx, llama_seq_id seq_id) {
     ctx->synchronize();
 
     return ctx->get_embeddings_seq(seq_id);
+}
+
+float llama_get_embeddings_sparse_ith(llama_context * ctx, int32_t i) {
+    ctx->synchronize();
+
+    return ctx->get_embeddings_sparse_ith(i);
+}
+
+float * llama_get_embeddings_colbert_ith(llama_context * ctx, int32_t i) {
+    ctx->synchronize();
+
+    return ctx->get_embeddings_colbert_ith(i);
 }
 
 void llama_set_embeddings_nextn(llama_context * ctx, bool value, bool masked) {

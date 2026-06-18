@@ -94,6 +94,7 @@ struct task_params {
 
     // Embeddings
     int32_t embd_normalize = 2; // (-1=none, 0=max absolute int16, 1=taxicab, 2=Euclidean/L2, >2=p-norm)
+    bool    embd_colbert    = false; // if true, also return per-token colbert multi-vectors
 
     json format_logit_bias(const std::vector<llama_logit_bias> & logit_bias) const;
     json to_json(bool only_metrics = false) const;
@@ -473,6 +474,10 @@ struct server_task_result_cmpl_partial : server_task_result {
 
 struct server_task_result_embd : server_task_result {
     std::vector<std::vector<float>> embedding;
+
+    std::vector<std::vector<std::pair<llama_token, float>>> sparse_embedding;
+
+    std::vector<std::vector<float>> colbert_embedding; // [n_tokens][n_embd] per-token multi-vectors
 
     int32_t n_tokens;
 

@@ -1996,6 +1996,7 @@ private:
                 SLT_ERR(slot, "failed to get embeddings, token = %d, seq_id = %d\n", batch.token[i], batch.seq_id[i][0]);
 
                 res->embedding.push_back(std::vector<float>(n_embd_out, 0.0f));
+                res->sparse_embedding.push_back({});
                 continue;
             }
 
@@ -2003,10 +2004,43 @@ private:
             if (llama_pooling_type(slot.ctx_tgt) != LLAMA_POOLING_TYPE_NONE) {
                 common_embd_normalize(embd, embd_res.data(), n_embd_out, slot.task->params.embd_normalize);
                 res->embedding.push_back(embd_res);
-                break;
+            } else {
+                res->embedding.emplace_back(embd, embd + n_embd_out);
             }
 
-            res->embedding.emplace_back(embd, embd + n_embd_out);
+            {
+                std::vector<std::pair<llama_token, float>> sparse_vec;
+                for (int j = 0; j < batch.n_tokens; ++j) {
+                    if (!batch.logits[j] || batch.seq_id[j][0] != slot.id) {
+                        continue;
+                    }
+                    float w = llama_get_embeddings_sparse_ith(slot.ctx_tgt, j);
+                    if (w > 0.0f) {
+                        sparse_vec.emplace_back(batch.token[j], w);
+                    }
+                }
+                res->sparse_embedding.push_back(std::move(sparse_vec));
+            }
+
+            // Collect colbert multi-vector embeddings (per-token, e.g. BGE-M3)
+            // Only when explicitly requested via ?colbert=true or body param
+            if (slot.task->params.embd_colbert) {
+                const int n_embd_out = llama_model_n_embd_out(model_tgt);
+                for (int i = 0; i < batch.n_tokens; ++i) {
+                    if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
+                        continue;
+                    }
+
+                    float * colbert_vec = llama_get_embeddings_colbert_ith(slot.ctx_tgt, i);
+                    if (colbert_vec != nullptr) {
+                        res->colbert_embedding.emplace_back(colbert_vec, colbert_vec + n_embd_out);
+                    }
+                }
+            }
+
+            if (llama_pooling_type(slot.ctx_tgt) != LLAMA_POOLING_TYPE_NONE) {
+                break;
+            }
         }
 
         SLT_DBG(slot, "%s", "sending embeddings\n");
@@ -5003,6 +5037,15 @@ std::unique_ptr<server_res_generator> server_routes::handle_embeddings_impl(cons
         }
     }
 
+    bool embd_colbert = params.embd_colbert;
+    if (body.count("colbert") != 0) {
+        embd_colbert = body.at("colbert");
+    }
+    // also support query parameter: ?colbert=true
+    if (req.params.count("colbert") != 0) {
+        embd_colbert = req.params.at("colbert") == "true" || req.params.at("colbert") == "1";
+    }
+
     // create and queue the task
     json responses = json::array();
     auto & rd = res->rd;
@@ -5017,6 +5060,7 @@ std::unique_ptr<server_res_generator> server_routes::handle_embeddings_impl(cons
             // OAI-compat
             task.params.res_type = res_type;
             task.params.embd_normalize = embd_normalize;
+            task.params.embd_colbert   = embd_colbert;
 
             tasks.push_back(std::move(task));
         }

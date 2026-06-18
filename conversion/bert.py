@@ -481,7 +481,23 @@ class XLMRobertaModel(BertModel):
                 fname = self.add_prefix_to_filename(self.fname_out, f"lora-{name}-")
                 self._lora_files[name] = gguf.GGUFWriter(fname, arch=gguf.MODEL_ARCH_NAMES[self.model_arch], endianess=self.endianess, use_temp_file=self.use_temp_file, dry_run=self.dry_run)
 
-        return super().generate_extra_tensors()
+        # Load BGE-M3 sparse_linear head from separate .pt file
+        sparse_path = self.dir_model / "sparse_linear.pt"
+        if sparse_path.is_file():
+            logger.info("Loading sparse_linear weights from %s", sparse_path)
+            sparse_state = torch.load(sparse_path, map_location="cpu", weights_only=True)
+            for key, tensor in sparse_state.items():
+                yield (f"sparse_linear.{key}", tensor)
+
+        # Load BGE-M3 colbert_linear head from separate .pt file
+        colbert_path = self.dir_model / "colbert_linear.pt"
+        if colbert_path.is_file():
+            logger.info("Loading colbert_linear weights from %s", colbert_path)
+            colbert_state = torch.load(colbert_path, map_location="cpu", weights_only=True)
+            for key, tensor in colbert_state.items():
+                yield (f"colbert_linear.{key}", tensor)
+
+        yield from super().generate_extra_tensors()
 
     def set_type(self):
         for lora_writer in self._lora_files.values():

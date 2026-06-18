@@ -1030,6 +1030,13 @@ extern "C" {
     // otherwise: float[n_embd] (1-dimensional)
     LLAMA_API float * llama_get_embeddings_seq(struct llama_context * ctx, llama_seq_id seq_id);
 
+    LLAMA_API float llama_get_embeddings_sparse_ith(struct llama_context * ctx, int32_t i);
+
+    // Get the ColBERT multi-vector embedding for token i (e.g. BGE-M3).
+    // Returns float[n_embd_out] per token (L2-normalized).
+    // Returns NULL for invalid indices or when no colbert head is available.
+    LLAMA_API float * llama_get_embeddings_colbert_ith(struct llama_context * ctx, int32_t i);
+
     //
     // backend sampling API [EXPERIMENTAL]
     // note: use only if the llama_context was created with at least one llama_sampler_seq_config

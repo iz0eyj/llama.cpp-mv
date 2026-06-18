@@ -85,6 +85,9 @@ struct llama_context {
     float * get_embeddings_ith(int32_t i);
     float * get_embeddings_seq(llama_seq_id seq_id);
 
+    float   get_embeddings_sparse_ith(int32_t i);
+    float * get_embeddings_colbert_ith(int32_t i);
+
     float * get_embeddings_nextn();
     float * get_embeddings_nextn_ith(int32_t i);
 
@@ -298,6 +301,9 @@ private:
     // host buffers for output layer input embeddings, per layer
     // populated when cparams.output_layer_inp[il] is true
     std::vector<buffer_view<float>> embd_layer_inp;
+
+    buffer_view<float> embd_sparse  = {nullptr, 0};
+    buffer_view<float> embd_colbert = {nullptr, 0}; // [n_outputs * n_embd]
 
     struct sampling_info {
         // !samplers.empty() to check if any samplers are active

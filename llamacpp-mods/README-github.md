@@ -24,13 +24,6 @@ Instead of comparing document-level summaries, you compare token-level represent
 (late interaction). This excels at question answering, exact phrase matching, and
 disambiguation between closely related concepts.
 
-## Maintenance
-
-This fork tracks [llama.cpp upstream](https://github.com/ggml-org/llama.cpp) with a **weekly alignment**
-(typically Sundays). The porting procedure is documented in `llamacpp-mods/bge-m3-sparse.md`.
-If you encounter build issues on a fresh clone, check that the `-S` source path points to
-the correct directory (CMake may cache stale paths from previous builds).
-
 ## Quick Start
 
 ```bash
