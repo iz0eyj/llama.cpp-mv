@@ -507,7 +507,23 @@ class XLMRobertaModel(BertModel):
             if name.endswith(".original"):
                 name = name[:-9]
 
+        # BGE-M3: colbert_linear is loaded separately by generate_extra_tensors
+        if "colbert_linear" in name:
+            return None
+
         return super().filter_tensors((name, gen))
+
+    def generate_extra_tensors(self) -> Iterable[tuple[str, Tensor]]:
+        # BGE-M3 stores sparse_linear.pt and colbert_linear.pt as separate files
+        for fname, key in [("sparse_linear.pt", "sparse_linear"), ("colbert_linear.pt", "colbert_linear")]:
+            path = self.dir_model / fname
+            if path.is_file():
+                data = torch.load(path, map_location="cpu", weights_only=True)
+                yield (f"{key}.weight", data["weight"].float())
+                if "bias" in data:
+                    yield (f"{key}.bias", data["bias"].float())
+
+        yield from super().generate_extra_tensors()
 
     def modify_tensors(self, data_torch: Tensor, name: str, bid: int | None) -> Iterable[tuple[str, Tensor]]:
         # position embeddings start at pad_token_id + 1, so just chop down the weight tensor

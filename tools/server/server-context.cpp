@@ -2026,6 +2026,30 @@ private:
             res->embedding.emplace_back(embd, embd + n_embd_out);
         }
 
+        // sparse embeddings (scalar per token)
+        for (int i = 0; i < batch.n_tokens; ++i) {
+            if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
+                continue;
+            }
+
+            float sparse_w = llama_get_embeddings_sparse_ith(slot.ctx_tgt, i);
+            if (!std::isnan(sparse_w) && sparse_w > 0.0f) {
+                res->sparse_embedding.push_back({batch.token[i], sparse_w});
+            }
+        }
+
+        // colbert embeddings (n_embd per token)
+        for (int i = 0; i < batch.n_tokens; ++i) {
+            if (!batch.logits[i] || batch.seq_id[i][0] != slot.id) {
+                continue;
+            }
+
+            const float * colbert = llama_get_embeddings_colbert_ith(slot.ctx_tgt, i);
+            if (colbert != nullptr) {
+                res->colbert_embedding.emplace_back(colbert, colbert + n_embd_out);
+            }
+        }
+
         SLT_DBG(slot, "%s", "sending embeddings\n");
 
         queue_results.send(std::move(res));

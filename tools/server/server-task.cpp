@@ -1459,18 +1459,32 @@ json server_task_result_embd::to_json() {
 }
 
 json server_task_result_embd::to_json_non_oaicompat() {
-    return json {
+    json res = json {
         {"index",     index},
         {"embedding", embedding},
     };
+    if (!sparse_embedding.empty()) {
+        res["sparse_embedding"] = sparse_embedding;
+    }
+    if (!colbert_embedding.empty()) {
+        res["colbert_embedding"] = colbert_embedding;
+    }
+    return res;
 }
 
 json server_task_result_embd::to_json_oaicompat() {
-    return json {
+    json res = json {
         {"index",            index},
         {"embedding",        embedding[0]},
         {"tokens_evaluated", n_tokens},
     };
+    if (!sparse_embedding.empty()) {
+        res["sparse_embedding"] = sparse_embedding;
+    }
+    if (!colbert_embedding.empty()) {
+        res["colbert_embedding"] = colbert_embedding;
+    }
+    return res;
 }
 
 //

@@ -2958,7 +2958,11 @@ void llm_graph_context::build_pooling(
         ggml_tensor * cls_b,
         ggml_tensor * cls_out,
         ggml_tensor * cls_out_b,
-        ggml_tensor * cls_norm) const {
+        ggml_tensor * cls_norm,
+        ggml_tensor * cls_sparse,
+        ggml_tensor * cls_sparse_b,
+        ggml_tensor * cls_colbert,
+        ggml_tensor * cls_colbert_b) const {
     if (!cparams.embeddings) {
         return;
     }
@@ -2976,6 +2980,32 @@ void llm_graph_context::build_pooling(
     //}
 
     GGML_ASSERT(inp != nullptr && "missing result_norm/result_embd tensor");
+
+    // sparse lexical head: ReLU(sparse_linear(hidden_state)) per token
+    // uses ggml_mul + ggml_sum_rows instead of ggml_mul_mat to avoid Vulkan crash with [N,1] weights
+    if (cls_sparse) {
+        ggml_tensor * cur_sparse = ggml_mul(ctx0, inp, cls_sparse);
+        cur_sparse = ggml_sum_rows(ctx0, cur_sparse);
+        if (cls_sparse_b) {
+            cur_sparse = ggml_add(ctx0, cur_sparse, cls_sparse_b);
+        }
+        cur_sparse = ggml_relu(ctx0, cur_sparse);
+        cb(cur_sparse, "result_embd_sparse", -1);
+        res->t_embd_sparse = cur_sparse;
+        ggml_build_forward_expand(gf, cur_sparse);
+    }
+
+    // colbert head: linear -> L2-norm per token
+    if (cls_colbert) {
+        ggml_tensor * cur_colbert = ggml_mul_mat(ctx0, cls_colbert, inp);
+        if (cls_colbert_b) {
+            cur_colbert = ggml_add(ctx0, cur_colbert, cls_colbert_b);
+        }
+        cur_colbert = ggml_norm(ctx0, cur_colbert, 1e-5f);
+        cb(cur_colbert, "result_embd_colbert", -1);
+        res->t_embd_colbert = cur_colbert;
+        ggml_build_forward_expand(gf, cur_colbert);
+    }
 
     ggml_tensor * cur;
 

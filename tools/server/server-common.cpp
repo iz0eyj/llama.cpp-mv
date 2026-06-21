@@ -1170,6 +1170,12 @@ json format_embeddings_response_oaicompat(
                 {"object", "embedding"}
             };
         }
+        if (elem.contains("sparse_embedding")) {
+            embedding_obj["sparse_embedding"] = elem["sparse_embedding"];
+        }
+        if (elem.contains("colbert_embedding")) {
+            embedding_obj["colbert_embedding"] = elem["colbert_embedding"];
+        }
         data.push_back(embedding_obj);
 
         n_tokens += json_value(elem, "tokens_evaluated", 0);

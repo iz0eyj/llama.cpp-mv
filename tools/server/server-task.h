@@ -469,6 +469,8 @@ struct server_task_result_cmpl_partial : server_task_result {
 
 struct server_task_result_embd : server_task_result {
     std::vector<std::vector<float>> embedding;
+    std::vector<std::pair<llama_token, float>> sparse_embedding;
+    std::vector<std::vector<float>> colbert_embedding;
 
     int32_t n_tokens;
 
