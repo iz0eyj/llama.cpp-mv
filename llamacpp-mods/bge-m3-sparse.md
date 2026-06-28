@@ -270,7 +270,8 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-06-15 | b9549 | b9637 | 10 files, 427+/126- | Portato, bit-identico |
 | 2026-06-16 | b9637 | b9637 | — | ColBERT head added |
 | 2026-06-22 | b9637 | b9743 | 13 files, 222+/861- | Portato, bit-identico |
-| Prossima | b9743 | — | — | Domenica 29 giugno |
+| 2026-06-28 | b9743 | b9833 | 11 files, 901+/511- | Portato, testato |
+| Prossima | b9833 | — | — | Domenica 05 luglio |
 
 ### Generated GGUF Files
 
