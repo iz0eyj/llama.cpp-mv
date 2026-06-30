@@ -302,3 +302,14 @@ curl -X POST http://127.0.0.1:8080/v1/embeddings -H "Content-Type: application/j
 # Should contain: "sparse_embedding": [[<id>, <weight>], ...]
 ```
 
+## Debugging API requests
+
+This fork adds `--log-requests FNAME` to `llama-server`. Every HTTP request and response is appended as one JSON line:
+
+```bash
+.\build\bin\llama-server.exe ... --log-requests requests.jsonl
+```
+
+Each line contains `method`, `path`, `remote_addr`, `status`, `request`, and `response`.
+Health, models, and metrics endpoints are skipped to avoid log spam.
+
