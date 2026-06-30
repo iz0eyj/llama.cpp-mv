@@ -3002,6 +3002,13 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_API_PREFIX"));
     add_opt(common_arg(
+        {"--log-requests"}, "FNAME",
+        "log all HTTP requests and responses as JSON lines to the specified file (default: disabled)",
+        [](common_params & params, const std::string & value) {
+            params.log_requests_file = value;
+        }
+    ).set_examples({LLAMA_EXAMPLE_SERVER}).set_env("LLAMA_ARG_LOG_REQUESTS"));
+    add_opt(common_arg(
         {"--ui-config", "--webui-config"}, "JSON",
         "JSON that provides default UI settings (overrides UI defaults)",
         [](common_params & params, const std::string & value) {

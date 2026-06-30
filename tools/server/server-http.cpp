@@ -9,8 +9,11 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
+
+#include <fstream>
 
 //
 // HTTP implementation using cpp-httplib
@@ -26,6 +29,9 @@ server_http_context::server_http_context()
 {}
 
 server_http_context::~server_http_context() = default;
+
+static std::ofstream * g_log_requests_fp = nullptr;
+static std::mutex      g_log_requests_mutex;
 
 static void log_server_request(const httplib::Request & req, const httplib::Response & res) {
     // skip logging requests that are regularly sent, to avoid log spam
@@ -45,6 +51,24 @@ static void log_server_request(const httplib::Request & req, const httplib::Resp
 
     SRV_DBG("request:  %s\n", req.body.c_str());
     SRV_DBG("response: %s\n", res.body.c_str());
+
+    if (g_log_requests_fp != nullptr) {
+        try {
+            json entry = {
+                {"method",      req.method},
+                {"path",        req.path},
+                {"remote_addr", req.remote_addr},
+                {"status",      res.status},
+                {"request",     req.body},
+                {"response",    res.body},
+            };
+            std::lock_guard<std::mutex> lock(g_log_requests_mutex);
+            *g_log_requests_fp << entry.dump() << '\n';
+            g_log_requests_fp->flush();
+        } catch (const std::exception & e) {
+            SRV_ERR("failed to log request: %s\n", e.what());
+        }
+    }
 }
 
 // For Google Cloud Platform deployment compatibility
@@ -114,7 +138,18 @@ bool server_http_context::init(const common_params & params) {
 #endif
 
     srv->set_default_headers({{"Server", "llama.cpp"}});
-    // srv->set_logger(log_server_request); // TODO @ngxson : this is too spamy, no very useful; improve it in the future
+
+    if (!params.log_requests_file.empty()) {
+        static std::ofstream log_fp(params.log_requests_file, std::ios::out | std::ios::app);
+        if (log_fp.is_open()) {
+            g_log_requests_fp = &log_fp;
+            srv->set_logger(log_server_request);
+            SRV_INF("logging HTTP requests to: %s\n", params.log_requests_file.c_str());
+        } else {
+            SRV_ERR("failed to open request log file: %s\n", params.log_requests_file.c_str());
+        }
+    }
+
     srv->set_exception_handler([](const httplib::Request &, httplib::Response & res, const std::exception_ptr & ep) {
         // this is fail-safe; exceptions should already handled by `ex_wrapper`
 

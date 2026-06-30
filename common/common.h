@@ -640,6 +640,7 @@ struct common_params {
 
     std::string ssl_file_key  = "";                                                                         // NOLINT
     std::string ssl_file_cert = "";                                                                         // NOLINT
+    std::string log_requests_file = "";                                                                     // NOLINT
 
     std::map<std::string, std::string> default_template_kwargs;
 
