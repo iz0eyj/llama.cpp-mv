@@ -3282,6 +3282,7 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
             } else if (is_falsey(value)) {
                 params.enable_reasoning = 0;
                 params.default_template_kwargs["enable_thinking"] = "false";
+                params.reasoning_format = COMMON_REASONING_FORMAT_NONE;
             } else if (is_autoy(value)) {
                 params.enable_reasoning = -1;
             } else {
