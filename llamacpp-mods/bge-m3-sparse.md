@@ -272,9 +272,10 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-06-22 | b9637 | b9743 | 13 files, 222+/861- | Portato, bit-identico |
 | 2026-06-28 | b9743 | b9833 | 11 files, 901+/511- | Portato, testato |
 | 2026-07-05 | b9833 | b9876 | 43 commits, 173 files, 13348+/4453- | Portato, testato |
-| Prossima | b9876 | — | — | Domenica 12 luglio |
+| 2026-07-12 | b9876 | b9977 | 101 commits, 352 files, 65280+/7533- | Portato, testato |
+| Prossima | b9977 | — | — | Domenica 19 luglio |
 
-**Nota su b9876:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
+**Nota su b9876+:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
 
 ### Generated GGUF Files
 
