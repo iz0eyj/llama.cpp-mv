@@ -1501,6 +1501,14 @@ common_params_context common_params_parser_init(common_params & params, llama_ex
         }
     ).set_env("LLAMA_ARG_CACHE_IDLE_SLOTS").set_examples({LLAMA_EXAMPLE_SERVER}));
     add_opt(common_arg(
+        {"--fail-on-no-slot"},
+        {"--no-fail-on-no-slot"},
+        "immediately fail new requests with HTTP 503 when no slots are available (default: disabled, requests are deferred)",
+        [](common_params & params, bool value) {
+            params.fail_on_no_slot = value;
+        }
+    ).set_env("LLAMA_ARG_FAIL_ON_NO_SLOT").set_examples({LLAMA_EXAMPLE_SERVER}));
+    add_opt(common_arg(
         {"--context-shift"},
         {"--no-context-shift"},
         string_format("whether to use context shift on infinite text generation (default: %s)", params.ctx_shift ? "enabled" : "disabled"),

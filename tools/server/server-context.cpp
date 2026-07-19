@@ -2368,14 +2368,22 @@ private:
                     if (slot == nullptr) {
                         // if no slot is available, we defer this task for processing later
                         SRV_DBG("no slot is available, defer task, id_task = %d\n", id_task);
-                        queue_tasks.defer(std::move(task));
+                        if (params_base.fail_on_no_slot) {
+                            send_error(task, "no slot available", ERROR_TYPE_UNAVAILABLE);
+                        } else {
+                            queue_tasks.defer(std::move(task));
+                        }
                         break;
                     }
 
                     if (slot->is_processing()) {
                         // if requested slot is unavailable, we defer this task for processing later
                         SRV_DBG("requested slot is unavailable, defer task, id_task = %d\n", id_task);
-                        queue_tasks.defer(std::move(task));
+                        if (params_base.fail_on_no_slot) {
+                            send_error(task, "no slot available", ERROR_TYPE_UNAVAILABLE);
+                        } else {
+                            queue_tasks.defer(std::move(task));
+                        }
                         break;
                     }
 
@@ -2385,7 +2393,11 @@ private:
                         std::vector<server_slot *> child_slots = get_free_slots(n_child_tasks, slot->id);
                         if (child_slots.size() < n_child_tasks) {
                             SRV_DBG("not enough free slots for child tasks, n_free = %zu, n_children = %zu, defer task, id_task = %d\n", child_slots.size(), n_child_tasks, id_task);
-                            queue_tasks.defer(std::move(task));
+                            if (params_base.fail_on_no_slot) {
+                                send_error(task, "no slot available", ERROR_TYPE_UNAVAILABLE);
+                            } else {
+                                queue_tasks.defer(std::move(task));
+                            }
                             break;
                         }
                         if (!launch_slots_with_parent_task(*slot, child_slots, std::move(task))) {
