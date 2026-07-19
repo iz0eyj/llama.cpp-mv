@@ -273,9 +273,10 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-06-28 | b9743 | b9833 | 11 files, 901+/511- | Portato, testato |
 | 2026-07-05 | b9833 | b9876 | 43 commits, 173 files, 13348+/4453- | Portato, testato |
 | 2026-07-12 | b9876 | b9977 | 101 commits, 352 files, 65280+/7533- | Portato, testato |
-| Prossima | b9977 | — | — | Domenica 19 luglio |
+| 2026-07-20 | b9977 | b10068 | 94 commits, 393 files, 22594+/8367- | Portato, testato |
+| Prossima | b10068 | — | — | Domenica 26 luglio |
 
-**Nota su b9876+:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
+**Nota su b9876-b10068:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
 
 ### Generated GGUF Files
 
@@ -300,10 +301,15 @@ cmake --build build --config Release -j 8
 # Test dense (must work)
 .\build\bin\llama-embedding.exe --model model.gguf --pooling cls --prompt "test"
 
-# Test server (must return sparse_embedding field)
-.\build\bin\llama-server.exe --model model.gguf --embedding --pooling cls --port 8080 --fit off
-curl -X POST http://127.0.0.1:8080/v1/embeddings -H "Content-Type: application/json" -d '{"input":"test"}'
+# Test server sparse (must return sparse_embedding field)
+.\build\bin\Release\llama-server.exe --model model.gguf --embeddings --pooling cls --port 8080 -ngl 99
+Invoke-RestMethod -Uri 'http://127.0.0.1:8080/v1/embeddings' -Method Post -ContentType 'application/json' -Body '{"input":"test"}'
 # Should contain: "sparse_embedding": [[<id>, <weight>], ...]
+
+# Test server colbert (add ?colbert=true)
+.\build\bin\Release\llama-server.exe --model model-colbert.gguf --embeddings --pooling cls --port 8080 -ngl 99
+Invoke-RestMethod -Uri 'http://127.0.0.1:8080/v1/embeddings?colbert=true' -Method Post -ContentType 'application/json' -Body '{"input":"test"}'
+# Should contain: "sparse_embedding" and "colbert_embedding": [[float], ...]
 ```
 
 ## Debugging API requests
@@ -317,3 +323,16 @@ This fork adds `--log-requests FNAME` to `llama-server`. Every HTTP request and 
 Each line contains `method`, `path`, `remote_addr`, `status`, `request`, and `response`.
 Health, models, and metrics endpoints are skipped to avoid log spam.
 
+## Avoiding OOM on concurrent requests
+
+This fork adds `--fail-on-no-slot` to `llama-server`. When enabled, the server returns HTTP 503 immediately if no slots are available, instead of deferring the request. Use it for single-slot production setups to prevent concurrent calls from loading multiple batches in parallel and causing a memory spike.
+
+```bash
+.\build\bin\Release\llama-server.exe \
+  --model model.gguf \
+  --embeddings --pooling cls --port 8080 \
+  -ngl 99 \
+  --fail-on-no-slot
+```
+
+The client must handle HTTP 503 (retry or queue).
