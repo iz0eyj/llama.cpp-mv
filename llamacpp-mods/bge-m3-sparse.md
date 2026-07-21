@@ -336,3 +336,38 @@ This fork adds `--fail-on-no-slot` to `llama-server`. When enabled, the server r
 ```
 
 The client must handle HTTP 503 (retry or queue).
+
+## Enforcing `-rea off` via the server
+
+This fork changes the behavior of `-rea off` (and `--reasoning-format none`) so that it is enforced server-side. When the server is started with reasoning disabled, API clients cannot re-enable it.
+
+The following client-side overrides are ignored when the server is started with `-rea off`:
+
+- `reasoning_format` in the request body
+- `chat_template_kwargs.enable_thinking` in the request body
+
+This is useful when the server admin wants deterministic, non-thinking behavior and clients must not be able to opt back into CoT.
+
+Example startup:
+
+```bash
+.\build\bin\Release\llama-server.exe \
+  -m model.gguf \
+  --port 8080 \
+  -ngl 99 \
+  -rea off
+```
+
+Example request (the `enable_thinking` override is ignored):
+
+```json
+{
+  "model": "model",
+  "messages": [{"role": "user", "content": "hello"}],
+  "chat_template_kwargs": {
+    "enable_thinking": true
+  }
+}
+```
+
+Note: the model may still emit empty `<think></think>` markers depending on the chat template. To remove them completely, use a non-thinking chat template for the specific model.
