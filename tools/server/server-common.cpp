@@ -1059,7 +1059,11 @@ json oaicompat_chat_params_parse(
     }
     inputs.reasoning_format = opt.reasoning_format;
     if (body.contains("reasoning_format")) {
-        inputs.reasoning_format = common_reasoning_format_from_name(body.at("reasoning_format").get<std::string>());
+        // when reasoning is explicitly disabled via CLI (-rea off / --reasoning-format none),
+        // do not allow API clients to re-enable it
+        if (opt.reasoning_format != COMMON_REASONING_FORMAT_NONE) {
+            inputs.reasoning_format = common_reasoning_format_from_name(body.at("reasoning_format").get<std::string>());
+        }
     }
     inputs.enable_thinking = opt.enable_thinking;
     if (!inputs.tools.empty() && inputs.tool_choice != COMMON_CHAT_TOOL_CHOICE_NONE) {
@@ -1079,7 +1083,11 @@ json oaicompat_chat_params_parse(
     // parse the "enable_thinking" kwarg to override the default value
     auto enable_thinking_kwarg = json_value(inputs.chat_template_kwargs, "enable_thinking", std::string(""));
     if (enable_thinking_kwarg == "true") {
-        inputs.enable_thinking = true;
+        // when reasoning is explicitly disabled via CLI (-rea off / --reasoning-format none),
+        // ignore client requests to enable thinking
+        if (opt.reasoning_format != COMMON_REASONING_FORMAT_NONE) {
+            inputs.enable_thinking = true;
+        }
     } else if (enable_thinking_kwarg == "false") {
         inputs.enable_thinking = false;
     } else if (!enable_thinking_kwarg.empty() && enable_thinking_kwarg[0] == '"') {
