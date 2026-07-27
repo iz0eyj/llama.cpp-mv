@@ -274,7 +274,8 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-07-05 | b9833 | b9876 | 43 commits, 173 files, 13348+/4453- | Portato, testato |
 | 2026-07-12 | b9876 | b9977 | 101 commits, 352 files, 65280+/7533- | Portato, testato |
 | 2026-07-20 | b9977 | b10068 | 94 commits, 393 files, 22594+/8367- | Portato, testato |
-| Prossima | b10068 | — | — | Domenica 26 luglio |
+| 2026-07-27 | b10068 | b10154 | 86 commits, 331 files, 58599+/6198- | Portato, testato (build MSVC Release OK) |
+| Prossima | b10154 | — | — | Domenica 2 agosto |
 
 **Nota su b9876-b10068:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
 
@@ -371,3 +372,5 @@ Example request (the `enable_thinking` override is ignored):
 ```
 
 Note: the model may still emit empty `<think></think>` markers depending on the chat template. To remove them completely, use a non-thinking chat template for the specific model.
+
+As of upstream `b10154`, the server also supports the OpenAI-compatible `"reasoning_effort": "none"` body parameter, which disables thinking for that single request. This is orthogonal to the server-side enforcement described above: `-rea off` blocks clients from enabling thinking, while `"reasoning_effort": "none"` is a client-driven way to disable it when the server allows reasoning.
