@@ -275,7 +275,8 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-07-12 | b9876 | b9977 | 101 commits, 352 files, 65280+/7533- | Portato, testato |
 | 2026-07-20 | b9977 | b10068 | 94 commits, 393 files, 22594+/8367- | Portato, testato |
 | 2026-07-27 | b10068 | b10154 | 86 commits, 331 files, 58599+/6198- | Portato, testato (build MSVC Release OK) |
-| Prossima | b10154 | — | — | Domenica 2 agosto |
+| 2026-08-05 | b10154 | b10288 | 134 commits, 323 files, 29250+/7716- | Portato, testato (build MSVC Release OK) |
+| Prossima | b10288 | — | — | Domenica 9 agosto |
 
 **Nota su b9876-b10068:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
 
