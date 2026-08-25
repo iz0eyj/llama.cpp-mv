@@ -276,9 +276,12 @@ Routine: ogni domenica, fetch upstream e verificare diff sui nostri file.
 | 2026-07-20 | b9977 | b10068 | 94 commits, 393 files, 22594+/8367- | Portato, testato |
 | 2026-07-27 | b10068 | b10154 | 86 commits, 331 files, 58599+/6198- | Portato, testato (build MSVC Release OK) |
 | 2026-08-05 | b10154 | b10288 | 134 commits, 323 files, 29250+/7716- | Portato, testato (build MSVC Release OK) |
-| Prossima | b10288 | — | — | Domenica 9 agosto |
+| 2026-08-25 | b10288 | b10615 (v0.2.0) | 327 commits, 1359 files, 86659+/41803- | Portato, testato (richiesto fix sparse_to_json) |
+| Prossima | b10615 | — | — | Domenica 30 agosto |
 
 **Nota su b9876-b10068:** la web UI di `llama-server` resta appesa sul primo request ("Processing..."), ma l'API `/v1/chat/completions` risponde regolarmente in ~1.7 s. Per uso dialogico conviene chiamare l'API direttamente.
+
+**Nota su b10615:** upstream è passato al versionamento semantico (cmake #26839, bump 0.2.0 in #27498); i tag bXXXX continuano. Il nuovo wrapper `common_json` (#27511) non supporta le coppie: la serializzazione di `sparse_embedding` ora passa da `sparse_to_json()` in `tools/server/server-task.cpp`, che emette `[[token_id, weight], ...]` come prima.
 
 ### Generated GGUF Files
 
