@@ -1463,6 +1463,16 @@ json server_task_result_cmpl_partial::to_json_anthropic() {
 //
 // server_task_result_embd
 //
+
+// common_json has no pair support: emit [[token_id, weight], ...]
+static json sparse_to_json(const std::vector<std::pair<llama_token, float>> & sparse) {
+    json res = json::array();
+    for (const auto & p : sparse) {
+        res.push_back(json::array({p.first, p.second}));
+    }
+    return res;
+}
+
 json server_task_result_embd::to_json() {
     return res_type == TASK_RESPONSE_TYPE_OAI_EMBD
         ? to_json_oaicompat()
@@ -1475,7 +1485,7 @@ json server_task_result_embd::to_json_non_oaicompat() {
         {"embedding", embedding},
     };
     if (!sparse_embedding.empty()) {
-        res["sparse_embedding"] = sparse_embedding;
+        res["sparse_embedding"] = sparse_to_json(sparse_embedding);
     }
     if (!colbert_embedding.empty()) {
         res["colbert_embedding"] = colbert_embedding;
@@ -1490,7 +1500,7 @@ json server_task_result_embd::to_json_oaicompat() {
         {"tokens_evaluated", n_tokens},
     };
     if (!sparse_embedding.empty()) {
-        res["sparse_embedding"] = sparse_embedding;
+        res["sparse_embedding"] = sparse_to_json(sparse_embedding);
     }
     if (!colbert_embedding.empty()) {
         res["colbert_embedding"] = colbert_embedding;
